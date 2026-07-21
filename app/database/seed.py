@@ -2,6 +2,17 @@
 seed.py — Populates database with synthetic test data.
 Run once to create demo users, departments, doctors and slots.
 All data is completely fictional — no real patient data.
+
+NOTE — HARDCODED PASSWORDS:
+Passwords are hardcoded for demo purposes only.
+All patients use: Patient@123
+All staff use:    Staff@123
+Passwords are bcrypt hashed before storing — never plain text in DB.
+
+FUTURE ENHANCEMENT:
+Replace hardcoded passwords with a self-registration flow where
+users set their own password via a registration form.
+See FUTURE_ENHANCEMENTS.md for full details.
 """
 
 import logging
@@ -17,19 +28,28 @@ logger = logging.getLogger("agentcare.seed")
 
 
 def hash_password(plain: str) -> str:
-    """Convert plain text password to bcrypt hash."""
+    """
+    Convert plain text password to bcrypt hash.
+    One-way hash — cannot be reversed back to plain text.
+    Salt is generated randomly and embedded in the hash string.
+    """
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 
 def seed_all() -> None:
-    """Create all tables then insert synthetic data."""
+    """
+    Create all tables then insert synthetic demo data.
+    Safe to call multiple times — skips if data already exists.
+    """
 
-    # Step 1: Create tables first
+    # Step 1: Create all 11 tables first
+    # Tables must exist before we can INSERT into them
     init_db()
 
     with get_db() as db:
 
         # Skip if already seeded
+        # Equivalent to: IF EXISTS (SELECT 1 FROM users) RETURN
         if db.query(User).count() > 0:
             logger.info("Already seeded — skipping.")
             return
@@ -37,6 +57,7 @@ def seed_all() -> None:
         logger.info("Seeding database...")
 
         # ── Staff users ──────────────────────────────────────────────
+        # INSERT INTO users (name, email, password_hash, role) VALUES (...)
         staff_users = [
             User(name="Admin Singh",
                  email="admin@agentcare.dev",
@@ -48,9 +69,12 @@ def seed_all() -> None:
                  role="staff"),
         ]
         db.add_all(staff_users)
-        db.flush()
+        db.flush()  # get IDs without committing
 
         # ── Patient users + profiles ─────────────────────────────────
+        # Each patient needs two inserts:
+        # 1. INSERT INTO users
+        # 2. INSERT INTO patient_profiles (with FK to users.id)
         patients = [
             dict(name="Ravi Kumar",
                  email="ravi@example.com",
@@ -78,9 +102,10 @@ def seed_all() -> None:
                 role="patient"
             )
             db.add(user)
-            db.flush()  # get user.id before next insert
+            db.flush()  # need user.id for profile FK
 
             # Insert into patient_profiles table
+            # user_id is FK → users.id
             profile = PatientProfile(
                 user_id=user.id,
                 date_of_birth=p["dob"],
@@ -93,6 +118,7 @@ def seed_all() -> None:
         db.flush()
 
         # ── Departments ──────────────────────────────────────────────
+        # INSERT INTO departments (name, description, active)
         departments = [
             Department(
                 name="Cardiology",
@@ -114,6 +140,7 @@ def seed_all() -> None:
         db.flush()
 
         # ── Doctors (2 per department) ───────────────────────────────
+        # Each doctor has FK → departments.id
         doctors_data = [
             ("Dr. Arjun Mehta",   "Cardiology"),
             ("Dr. Sunita Rao",    "Cardiology"),
@@ -123,7 +150,9 @@ def seed_all() -> None:
             ("Dr. Emily Zhang",   "Orthopedics"),
         ]
 
-        # Build lookup: department name → department object
+        # Build lookup dictionary: dept name → dept object
+        # Avoids extra SELECT queries for each doctor
+        # Equivalent to: SELECT id FROM departments WHERE name = @dept_name
         dept_map = {d.name: d for d in departments}
 
         doctors = []
@@ -134,23 +163,40 @@ def seed_all() -> None:
                 active=True
             )
             db.add(doc)
-            doctors.append(doc)
+            doctors.append(doc)  # save for slot creation below
         db.flush()
 
         # ── Appointment slots (5 per doctor, next 14 days) ───────────
+        # Each slot has FK → doctors.id
+        # Spread across different days and times
+
+        # Today at midnight UTC
+        # Equivalent to: CAST(GETUTCDATE() AS DATE)
         base_date = datetime.utcnow().replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        slot_hours = [9, 10, 11, 14, 15]
+
+        # Available appointment hours
+        slot_hours = [9, 10, 11, 14, 15]  # 9am, 10am, 11am, 2pm, 3pm
         slots_created = 0
 
+        # Two nested loops = CROSS JOIN between doctors and hours
         for day_offset, doc in enumerate(doctors):
             for i, hour in enumerate(slot_hours):
+
+                # Spread slots across different days
+                # Equivalent to: DATEADD(day, ..., @base_date)
                 slot_day = base_date + timedelta(
                     days=(day_offset * 2 + i % 3 + 1)
                 )
+
+                # Set the hour on the date
+                # Equivalent to: DATEADD(hour, @hour, @slot_day)
                 start = slot_day.replace(hour=hour)
-                end   = start + timedelta(minutes=30)
+
+                # Add 30 minutes for end time
+                # Equivalent to: DATEADD(minute, 30, @start)
+                end = start + timedelta(minutes=30)
 
                 db.add(AppointmentSlot(
                     doctor_id=doc.id,
@@ -165,7 +211,7 @@ def seed_all() -> None:
             slots_created
         )
 
-    # This prints after the with block commits
+    # Prints after the with block commits everything
     print("")
     print("Seed complete.")
     print("─" * 40)
