@@ -1,0 +1,28 @@
+# Secrets — NEVER commit
+.env
+
+# Database
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtual environment
+.venv/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (real patient files)
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log
