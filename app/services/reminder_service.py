@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from app.database.session import get_db
 from app.database.models import Reminder, Appointment, AppointmentSlot
@@ -43,7 +43,7 @@ def create_followup_task(patient_profile_id, appointment_id, days_after=7, actor
         if not appt:
             return {"success": False, "reason": "Appointment not found."}
         slot = db.query(AppointmentSlot).filter_by(id=appt.slot_id).first()
-        base = slot.start_time if slot else datetime.utcnow()
+        base = slot.start_time if slot else datetime.now(timezone.utc)
         followup_at = base + timedelta(days=days_after)
         reminder = Reminder(
             patient_id=patient_profile_id,
@@ -75,7 +75,7 @@ def create_missing_docs_reminder(patient_profile_id, missing_doc_types, actor_id
             appointment_id=None,
             reminder_type="document_missing",
             message="Action required: Please upload: " + doc_list,
-            scheduled_at=datetime.utcnow() + timedelta(hours=2),
+            scheduled_at=datetime.now(timezone.utc) + timedelta(hours=2),
             status="pending",
         )
         db.add(reminder)

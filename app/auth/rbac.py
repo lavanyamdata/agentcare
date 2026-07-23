@@ -1,4 +1,4 @@
-rbac = '''import logging
+import logging
 import functools
 import bcrypt
 from sqlalchemy.orm import make_transient
@@ -76,8 +76,3 @@ def get_patient_profile_for_user(user_id):
             db.expunge(profile)
             make_transient(profile)
         return profile
-'''
-
-with open("app/auth/rbac.py", "w") as f:
-    f.write(rbac)
-print("rbac.py created")

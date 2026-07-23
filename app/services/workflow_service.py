@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, List
 from app.database.session import get_db
 from app.database.models import WorkflowRun
@@ -34,7 +34,7 @@ def update_workflow_state(workflow_run_id, current_step, state, status=None):
         run.state = json.dumps(state, default=str)
         if status:
             run.status = status
-        run.updated_at = datetime.utcnow()
+        run.updated_at = datetime.now(timezone.utc)
         logger.info("WorkflowRun updated: id=" + str(workflow_run_id) + " step=" + current_step)
 
 
