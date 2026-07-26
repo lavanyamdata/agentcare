@@ -74,7 +74,12 @@ def finalize_workflow(state: AgentState) -> AgentState:
         status = "completed"
 
     else:
-        if not state["final_response"]:
+        if state["final_response"].strip().upper().startswith("NO_SLOTS"):
+            state["final_response"] = (
+                "No appointment slots are currently available for your request. "
+                "Our staff has been notified and will follow up with options."
+            )
+        elif not state["final_response"]:
             state["final_response"] = (
                 "We could not complete your booking. Our staff will review your request."
             )
