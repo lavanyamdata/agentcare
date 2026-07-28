@@ -27,9 +27,8 @@ flowchart TD
 
     P --> AUTH[rbac.py<br/>login · role check]
     S --> AUTH
-    AUTH --> GRAPH
 
-    subgraph GRAPH["LangGraph Orchestrator — graph.py"]
+    subgraph ORCH["LangGraph Orchestrator — graph.py"]
         C[Coordinator Agent<br/>creates WorkflowRun · delegates]
         SA[Safety Agent<br/>emergency / diagnosis / Rx check]
         RA[Routing Agent<br/>intent → department]
@@ -41,6 +40,7 @@ flowchart TD
         RA -->|UNCLEAR| ESC
     end
 
+    AUTH --> C
     AA --> TOOLS[Tools Layer<br/>7 @tool wrappers]
     SA --> TOOLS
     TOOLS --> SVC[Service Layer<br/>appointment · document · escalation<br/>reminder · workflow · audit · patient]
@@ -50,9 +50,10 @@ flowchart TD
     ESC --> S
 
     LLM[Groq LLM<br/>llama-3.3-70b · temp=0]
-    SA <--> LLM
-    RA <--> LLM
-    AA <--> LLM
+    SA --> LLM
+    RA --> LLM
+    AA --> LLM
+    LLM --> SA
 ```
 
 ## The Four Agents
